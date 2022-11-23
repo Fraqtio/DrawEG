@@ -1,6 +1,7 @@
 import numpy as np
 from PIL import Image
 from math import sin, cos, pi, radians, sqrt
+import time
 
 
 #TODO: dataclasses
@@ -18,26 +19,20 @@ class ArtField:
         self.y0 = y0
         self.x_size = x
         self.y_size = y
-        self.field = np.zeros(shape=(self.y_size, self.x_size), dtype='uint8')
+        self.field = np.zeros(shape=(self.y_size, self.x_size), dtype='uint16')
 
     def clear_field(self):
-        self.field = np.zeros(shape=(self.y_size, self.x_size), dtype='uint8')
+        self.field = np.zeros(shape=(self.y_size, self.x_size), dtype='uint16')
 
     def save_field(self, filename='draw.png'):
-        Image.fromarray(255 - self.field[::-1, :], mode='L').save(filename)
+        self.field[self.field>255] = 255
+        self.field = np.array(self.field, dtype='uint8')
+        Image.fromarray(255 - self.field[::-1], mode='L').save(filename)
+        self.field = np.array(self.field, dtype='uint16')
 
     def __add__(self, other):
-        y_shape, x_shape = other.field.shape
-        y1, x1 = y_shape + other.y0, x_shape + other.x0
-        buf_fig = np.zeros(shape=(self.field.shape[0] + 2 * y_shape,
-                                  self.field.shape[1] + 2 * x_shape), dtype='uint16')
-        buf_fig[y1: y1 + y_shape, x1: x1 + x_shape] += other.field
-        tmp = buf_fig[y_shape: self.field.shape[0] + y_shape,
-                      x_shape: self.field.shape[1] + x_shape]
-        tmp += self.field
-        tmp[tmp > 255] = 255
-        self.field = np.array(tmp, dtype='uint8')
-
+        self.field[max(other.y0, 0):max(other.field.shape[0]+other.y0, 0),
+                   max(other.x0, 0):max(other.field.shape[1]+other.x0, 0)] += other.field
         return self
 
 
@@ -124,13 +119,13 @@ class Figure:
         dy = y1 - y0
 
         if (dx == 0) and (dy != 0):
-            sdy = int(dy / abs(dy))
+            sdy = np.sign(dy)
             for _ in range(abs(dy)):
                 self.draw_crest((y0, x0))
                 y0 += sdy
 
         elif (dy == 0) and (dx != 0):
-            sdx = int(dx / abs(dx))
+            sdx = np.sign(dx)
             for _ in range(abs(dx)):
                 self.draw_crest((y0, x0))
                 x0 += sdx
@@ -140,8 +135,8 @@ class Figure:
             y_list = [y / abs(dy) for y in range(abs(dy), 0, -1)]
             all_list = list(set(x_list + y_list))
             all_list.sort()
-            sdy = int(dy / abs(dy))
-            sdx = int(dx / abs(dx))
+            sdy = np.sign(dy)
+            sdx = np.sign(dx)
 
             for shift in all_list:
                 if (shift in x_list) and (shift in y_list):
@@ -348,16 +343,19 @@ class Funfig(Figure):
             # Cutting in range by Y axis
             self.y0 = max(y_range[0] - self.y_shift, 0)
             self.y1 = max(y_range[1] - self.y_shift, 0)
+
             self.img_fld.field = self.img_fld.field[self.y0:self.y1 + 1]
             # Cutting white poles by X axis
-            cut_ind = np.where(self.img_fld.field != 0)[1]
-            self.x0 = min(cut_ind)
-            self.x1 = max(cut_ind)
+            cut_x_ind = np.where(self.img_fld.field != 0)[1]
+            self.x0 = min(cut_x_ind)
+            self.x1 = max(cut_x_ind)
             self.img_fld.field = self.img_fld.field[:, self.x0:self.x1+1]
+
         elif len(y_range) == 0:
-            cut_ind = np.where(self.img_fld.field != 0)[1]
-            self.x0 = min(cut_ind)
-            self.x1 = max(cut_ind)
+            cut_x_ind = np.where(self.img_fld.field != 0)[1]
+            self.x0 = min(cut_x_ind)
+            self.x1 = max(cut_x_ind)
+
         else:
             raise Exception
 
@@ -367,11 +365,11 @@ class Funfig(Figure):
             inside_indent = 4
             spec_opacity = 1
             notch_len = 3
-            max_y_num = len(str(max(abs(y_range[0]), abs(y_range[1]))))
-            # x indent for X axis line
+            max_y_num = max(len(str(y_range[0])), len(str(y_range[1])))
+            # x indent for X axis line from bottom of fld
             outside_x_indent = num_hei + notch_len + 1
-            # y indent for Y axis line
-            outside_y_indent = max_y_num * num_len - (max_y_num - 1) + notch_len
+            # y indent for Y axis line from left of fld
+            outside_y_indent = max_y_num * num_len + notch_len
             total_x_indent = inside_indent + spec_opacity + outside_x_indent
             total_y_indent = inside_indent + spec_opacity + outside_y_indent
             # Expanding field
@@ -406,28 +404,55 @@ class Funfig(Figure):
                 self.img_fld += num_art.get_numbers()
                 num_art = Number(number=str(self.x1), x0=total_y_indent + dx)
                 self.img_fld += num_art.get_numbers()
-            #dx < max_x_len * 4 * num_len
+
             else:
                 num_art = Number(number=str(self.x0), x0=total_y_indent - int((num_len_x0 * num_len)/2))
                 self.img_fld += num_art.get_numbers()
                 num_art = Number(number=str(self.x1), x0=total_y_indent - int((num_len_x1 * num_len)/2) + dx)
                 self.img_fld += num_art.get_numbers()
-                for num in range(self.x0, self.x1):
-                    if (num % max(10**(max_x_len-2), 10) == 0) and \
-                       (num % 20 == 0) and \
-                       (abs(num - self.x0) >= max(10**(max_x_len-2), 10)) and \
-                       (self.x1 - num >= max(10**(max_x_len-2), 10)):
+                step = 20*max(1, max_x_len-3)
+                start = self.x0 + self.x0%step + step
+                stop = self.x1 - self.x1%step - step + 1
 
-                        self.img_fld.field[outside_x_indent - notch_len:outside_x_indent,
-                                           total_y_indent + num - self.x0] = 255
-                        num_art = Number(number=str(num),
-                                         x0=total_y_indent - int((len(str(num)) * num_len) / 2) + num - self.x0)
-                        self.img_fld += num_art.get_numbers()
+                for num in range(start, stop, step):
+                    self.img_fld.field[outside_x_indent - notch_len:outside_x_indent,
+                                       total_y_indent + num - self.x0] = 255
+                    num_art = Number(number=str(num),
+                                     x0=total_y_indent - int((len(str(num)) * num_len) / 2) + num - self.x0)
+                    self.img_fld += num_art.get_numbers()
+
+            self.y0 += self.y_shift
+            self.y1 += self.y_shift
+            dy = abs(self.y1 - self.y0)
+            max_y_len = len(str(max(abs(self.y0), abs(self.y1))))
+            self.img_fld.field[total_x_indent, outside_y_indent - notch_len: outside_y_indent] = 255
+            self.img_fld.field[total_x_indent + dy, outside_y_indent - notch_len: outside_y_indent] = 255
+
+            if dy < num_hei and dy != 0:
+                num_art = Number(number=str(self.y0), y0=total_x_indent - num_hei)
+                self.img_fld += num_art.get_numbers()
+                num_art = Number(number=str(self.y1), y0=total_x_indent + dy)
+                self.img_fld += num_art.get_numbers()
+
+            else:
+                num_art = Number(number=str(self.y0), y0=total_x_indent - round(num_hei/2))
+                self.img_fld += num_art.get_numbers()
+                num_art = Number(number=str(self.y1), y0=total_x_indent - round(num_hei/2) + dy)
+                self.img_fld += num_art.get_numbers()
+                step = 20 * max(1, max_y_len - 3)
+                start = self.y0 + self.y0 % step + step
+                stop = self.y1 - self.y1 % step - step + 1
+
+                for num in range(start, stop, step):
+                    self.img_fld.field[total_x_indent + num - self.y0,
+                                       outside_y_indent - notch_len:outside_y_indent] = 255
+                    num_art = Number(number=str(num), y0=total_x_indent + num - self.y0 - round(num_hei/2))
+                    self.img_fld += num_art.get_numbers()
 
 
 def main():
 
-    fld = ArtField(x=2200, y=2200)
+    fld = ArtField(x=8000, y=8000)
     #triangle1 = Figure(opacity=50, points_list=[(10, 50), (10, 100)], thick=2, name='triangle1')
     #triangle1.save_fig()
     #triangle2 = Figure(opacity=70, points_list=[(40, 40)], thick=2, name='triangle2')
@@ -438,11 +463,14 @@ def main():
     # fld += triangle2.get_figure()
     # fld += triangle3.get_figure()
     y = lambda x: x
-    f = Funfig(f=y, x_range=(-1910, -99), y_range=(-1000, 200), spec=True)
+    f = Funfig(f=y, x_range=(-2000, 2000), y_range=(-1100, 1200), spec=True)
     f.save_figure()
     fld += f.get_figure()
     fld.save_field()
 
 
 if __name__ == '__main__':
+    start = time.time()
     main()
+    end = time.time() - start
+    print(end,'s')
