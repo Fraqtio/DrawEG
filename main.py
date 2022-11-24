@@ -14,7 +14,7 @@ class ArtField:
     field: np.array     Field container
     """
 
-    def __init__(self, y: int = 8192, x: int = 8192, y0: int = 0, x0: int = 0):
+    def __init__(self, y: int = 1, x: int = 1, y0: int = 0, x0: int = 0):
         self.x0 = x0
         self.y0 = y0
         self.x_size = x
@@ -32,7 +32,9 @@ class ArtField:
 
     def __add__(self, other):
         self.field[max(other.y0, 0):max(other.field.shape[0]+other.y0, 0),
-                   max(other.x0, 0):max(other.field.shape[1]+other.x0, 0)] += other.field
+                   max(other.x0, 0):max(other.field.shape[1]+other.x0, 0)] += \
+            other.field[max(-other.y0, 0):max(other.field.shape[0]-other.y0, other.field.shape[0]),
+                        max(-other.x0, 0):max(other.field.shape[1]-other.x0, other.field.shape[1])]
         return self
 
 
@@ -65,11 +67,15 @@ class Figure:
         self.min_y = min([y for y, _ in self.points])
         self.max_x = max([x for _, x in self.points])
         self.max_y = max([y for y, _ in self.points])
-        self.dy = self.max_y - self.min_y
-        self.dx = self.max_x - self.min_x
-        self.img_fld = ArtField(x=self.dx + 2 * self.thick + 1, y=self.dy + 2 * self.thick + 1,
-                                x0=self.min_x, y0=self.min_y)
-        self.draw_lines()
+        if self.max_y > 0 and self.max_x > 0:
+            self.dy = self.max_y - self.min_y
+            self.dx = self.max_x - self.min_x
+            self.img_fld = ArtField(x=self.dx + 2 * self.thick + 1, y=self.dy + 2 * self.thick + 1,
+                                    x0=self.min_x, y0=self.min_y)
+            self.draw_lines()
+        else:
+            print(f'Figure {self.name} is out of field bounds')
+            self.img_fld = ArtField()
 
     def save_figure(self):
         self.img_fld.save_field(f'{self.name}.png')
@@ -317,9 +323,8 @@ class Funfig(Figure):
     x0: int         Origin of X field axis, used in figure placing on field
     y0: int         Origin of Y field axis, used in figure placing on field
     """
-
-    def __init__(self, f=lambda x: x, y_range=(), x_range=(0, 10), scaling=1, spec=False, name='func', x0=100, y0=100):
-        #TODO: дописать поле с координатніми стрелками
+#TODO: finish scaling and choose optimize max Y and X ranges
+    def __init__(self, f=lambda x: x, y_range=(), x_range=(0, 10), scaling=1, spec=False, name='func', x0=0, y0=0):
         point_list = []
         if (len(x_range) != 2) or (type(x_range[0]) != int) or (type(x_range[1]) != int):
             raise Exception
@@ -339,11 +344,17 @@ class Funfig(Figure):
         self.img_fld.x0 = x0
         self.img_fld.y0 = y0
 
-        if len(y_range) == 2:
-            # Cutting in range by Y axis
-            self.y0 = max(y_range[0] - self.y_shift, 0)
-            self.y1 = max(y_range[1] - self.y_shift, 0)
+        if len(y_range) == 1:
+            y_range = (y_range[0], y_range[0])
 
+        if len(y_range) == 2:
+            if y_range[1] < y_range[0]:
+                y_range = y_range[::-1]
+            y_range = (y_range[0]*scaling, y_range[1]*scaling)
+            # Cutting in range by Y axis
+            cut_y_ind = np.where(self.img_fld.field != 0)[0]
+            self.y0 = max(y_range[0] - self.y_shift, 0)
+            self.y1 = min(max(y_range[1] - self.y_shift, 0), max(cut_y_ind))
             self.img_fld.field = self.img_fld.field[self.y0:self.y1 + 1]
             # Cutting white poles by X axis
             cut_x_ind = np.where(self.img_fld.field != 0)[1]
@@ -352,6 +363,9 @@ class Funfig(Figure):
             self.img_fld.field = self.img_fld.field[:, self.x0:self.x1+1]
 
         elif len(y_range) == 0:
+            cut_y_ind = np.where(self.img_fld.field != 0)[0]
+            self.y0 = min(cut_y_ind)
+            self.y1 = max(cut_y_ind)
             cut_x_ind = np.where(self.img_fld.field != 0)[1]
             self.x0 = min(cut_x_ind)
             self.x1 = max(cut_x_ind)
@@ -365,7 +379,11 @@ class Funfig(Figure):
             inside_indent = 4
             spec_opacity = 1
             notch_len = 3
-            max_y_num = max(len(str(y_range[0])), len(str(y_range[1])))
+            self.y0 += self.y_shift
+            self.y1 += self.y_shift
+            self.x0 += self.x_shift
+            self.x1 += self.x_shift
+            max_y_num = max(len(str(self.y0)), len(str(self.y1)))
             # x indent for X axis line from bottom of fld
             outside_x_indent = num_hei + notch_len + 1
             # y indent for Y axis line from left of fld
@@ -382,88 +400,97 @@ class Funfig(Figure):
             self.img_fld.field = np.column_stack((self.img_fld.field, np.zeros(shape=
                                                 (self.img_fld.field.shape[0], outside_y_indent), dtype='uint8')))
             # Draw specification axis lines
-            self.points = [ (outside_x_indent - notch_len, self.img_fld.field.shape[1] - 1 - notch_len),
-                            (outside_x_indent, self.img_fld.field.shape[1] - 1),
-                            (outside_x_indent, outside_y_indent),
-                            (self.img_fld.field.shape[0] - 1, outside_y_indent),
-                            (self.img_fld.field.shape[0] - 1 - notch_len, outside_y_indent - notch_len)]
+            self.points = [(outside_x_indent - notch_len, self.img_fld.field.shape[1] - 1 - notch_len),
+                           (outside_x_indent, self.img_fld.field.shape[1] - 1),
+                           (outside_x_indent, outside_y_indent),
+                           (self.img_fld.field.shape[0] - 1, outside_y_indent),
+                           (self.img_fld.field.shape[0] - 1 - notch_len, outside_y_indent - notch_len)]
             self.draw_lines()
 
             # Adding notches on axis lines
-            self.x0 += self.x_shift
-            self.x1 += self.x_shift
             num_len_x0 = len(str(self.x0))
             num_len_x1 = len(str(self.x1))
             dx = abs(self.x1 - self.x0)
-            max_x_len = len(str(max(abs(self.x0), abs(self.x1))))
+            max_x_len = len(str(
+                max(abs(round(self.x0/scaling)),
+                    abs(round(self.x1/scaling)))))
             self.img_fld.field[outside_x_indent - notch_len:outside_x_indent, total_y_indent] = 255
             self.img_fld.field[outside_x_indent - notch_len:outside_x_indent, total_y_indent + dx] = 255
 
             if dx < max_x_len * num_len and dx != 0:
-                num_art = Number(number=str(self.x0), x0=total_y_indent - num_len_x0 * num_len)
+                num_art = Number(number=str(round(self.x0/scaling)),
+                                 x0=total_y_indent - num_len_x0 * num_len)
                 self.img_fld += num_art.get_numbers()
-                num_art = Number(number=str(self.x1), x0=total_y_indent + dx)
+                num_art = Number(number=str(round(self.x1/scaling)),
+                                 x0=total_y_indent + dx)
                 self.img_fld += num_art.get_numbers()
 
             else:
-                num_art = Number(number=str(self.x0), x0=total_y_indent - int((num_len_x0 * num_len)/2))
+                num_art = Number(number=str(round(self.x0/scaling)),
+                                 x0=total_y_indent - int((num_len_x0 * num_len)/2))
                 self.img_fld += num_art.get_numbers()
-                num_art = Number(number=str(self.x1), x0=total_y_indent - int((num_len_x1 * num_len)/2) + dx)
+                num_art = Number(number=str(round(self.x1/scaling)),
+                                 x0=total_y_indent - int((num_len_x1 * num_len)/2) + dx)
                 self.img_fld += num_art.get_numbers()
-                step = 20*max(1, max_x_len-3)
-                start = self.x0 + self.x0%step + step
-                stop = self.x1 - self.x1%step - step + 1
+                step = 20 * max(1, max_x_len - 3)
+                start = self.x0 + abs(self.x0)%step + step
+                stop = self.x1 - abs(self.x1)%step - step + 1
 
                 for num in range(start, stop, step):
                     self.img_fld.field[outside_x_indent - notch_len:outside_x_indent,
                                        total_y_indent + num - self.x0] = 255
-                    num_art = Number(number=str(num),
+                    num_art = Number(number=str(round(num/scaling)),
                                      x0=total_y_indent - int((len(str(num)) * num_len) / 2) + num - self.x0)
                     self.img_fld += num_art.get_numbers()
 
-            self.y0 += self.y_shift
-            self.y1 += self.y_shift
             dy = abs(self.y1 - self.y0)
-            max_y_len = len(str(max(abs(self.y0), abs(self.y1))))
+            max_y_len = len(str(
+                max(abs(round(self.y0/scaling)),
+                    abs(round(self.y1/scaling)))))
             self.img_fld.field[total_x_indent, outside_y_indent - notch_len: outside_y_indent] = 255
             self.img_fld.field[total_x_indent + dy, outside_y_indent - notch_len: outside_y_indent] = 255
 
             if dy < num_hei and dy != 0:
-                num_art = Number(number=str(self.y0), y0=total_x_indent - num_hei)
+                num_art = Number(number=str(round(self.y0/scaling)),
+                                 y0=total_x_indent - num_hei)
                 self.img_fld += num_art.get_numbers()
-                num_art = Number(number=str(self.y1), y0=total_x_indent + dy)
+                num_art = Number(number=str(round(self.y1/scaling)),
+                                 y0=total_x_indent + dy)
                 self.img_fld += num_art.get_numbers()
 
             else:
-                num_art = Number(number=str(self.y0), y0=total_x_indent - round(num_hei/2))
+                num_art = Number(number=str(round(self.y0/scaling)),
+                                 y0=total_x_indent - round(num_hei/2))
                 self.img_fld += num_art.get_numbers()
-                num_art = Number(number=str(self.y1), y0=total_x_indent - round(num_hei/2) + dy)
+                num_art = Number(number=str(round(self.y1/scaling)),
+                                 y0=total_x_indent - round(num_hei/2) + dy)
                 self.img_fld += num_art.get_numbers()
                 step = 20 * max(1, max_y_len - 3)
-                start = self.y0 + self.y0 % step + step
-                stop = self.y1 - self.y1 % step - step + 1
+                start = self.y0 + abs(self.y0) % step + step
+                stop = self.y1 - abs(self.y1) % step - step + 1
 
                 for num in range(start, stop, step):
                     self.img_fld.field[total_x_indent + num - self.y0,
                                        outside_y_indent - notch_len:outside_y_indent] = 255
-                    num_art = Number(number=str(num), y0=total_x_indent + num - self.y0 - round(num_hei/2))
+                    num_art = Number(number=str(round(num/scaling)),
+                                     y0=total_x_indent + num - self.y0 - round(num_hei/2))
                     self.img_fld += num_art.get_numbers()
 
 
 def main():
 
     fld = ArtField(x=8000, y=8000)
-    #triangle1 = Figure(opacity=50, points_list=[(10, 50), (10, 100)], thick=2, name='triangle1')
-    #triangle1.save_fig()
-    #triangle2 = Figure(opacity=70, points_list=[(40, 40)], thick=2, name='triangle2')
-    #triangle2.save_fig()
-    #triangle3 = SimFigure(mode='xy0', first_point=(0, 0), side_len=50, corners=9, thick=2, name='simfig')
-    #triangle3.save_fig()
+    # triangle1 = Figure(opacity=50, points_list=[(-1000, -5000), (-10, -100)], thick=2, name='triangle1')
+    # triangle1.save_figure()
+    # triangle2 = Figure(opacity=70, points_list=[(40, 40)], thick=2, name='triangle2')
+    # triangle2.save_figure()
+    # triangle3 = SimFigure(mode='xy0', first_point=(0, 0), side_len=50, corners=9, thick=2, name='simfig')
+    # triangle3.save_figure()
     # fld += triangle1.get_figure()
     # fld += triangle2.get_figure()
     # fld += triangle3.get_figure()
-    y = lambda x: x
-    f = Funfig(f=y, x_range=(-2000, 2000), y_range=(-1100, 1200), spec=True)
+    y = lambda x: 2*sin(x)
+    f = Funfig(f=y, x_range=(-200, 200), spec=True, scaling=10)
     f.save_figure()
     fld += f.get_figure()
     fld.save_field()
