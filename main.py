@@ -19,7 +19,7 @@ def main():
                x_range=(-350, -360),
                spec=True,
                scaling=10,
-               thick=0,
+               thick=100,
                name='ThickFunc')
     f.save_figure()
     fld += f.get_figure()

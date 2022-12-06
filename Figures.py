@@ -251,19 +251,19 @@ class Funfig(Figure):
             # Cutting in range by Y axis
             cut_y_ind, cut_x_ind = np.where(self.img_fld.field != 0)
             self.y0 = max(y_range[0] - self.min_y, 0)
-            self.y1 = min(max(y_range[1] - self.min_y, 0), max(cut_y_ind))
+            self.y1 = min(max(y_range[1] - self.min_y, 0), max(cut_y_ind) - self.thick)
             self.img_fld.field = self.img_fld.field[self.y0:self.y1 + 1]
             # Cutting white poles by X axis
-            self.x0 = min(cut_x_ind)
-            self.x1 = max(cut_x_ind)
+            self.x0 = min(cut_x_ind) + self.thick
+            self.x1 = max(cut_x_ind) - self.thick
             self.img_fld.field = self.img_fld.field[:, self.x0:self.x1 + 1]
 
         elif len(y_range) == 0:
             cut_y_ind, cut_x_ind = np.where(self.img_fld.field != 0)
             self.y0 = min(cut_y_ind)
-            self.y1 = max(cut_y_ind)
+            self.y1 = max(cut_y_ind) - 2 * self.thick
             self.x0 = min(cut_x_ind)
-            self.x1 = max(cut_x_ind)
+            self.x1 = max(cut_x_ind) - 2 * self.thick
 
         else:
             print(f'Invalid y_range format in {self.name}')
@@ -280,6 +280,7 @@ class Funfig(Figure):
             self.y1 += self.min_y
             self.x0 += self.min_x
             self.x1 += self.min_x
+            print(self.y0, self.y1, self.x0, self.x1)
             num_len_y0 = len(str(round(self.y0 / scaling)))
             num_len_y1 = len(str(round(self.y1 / scaling)))
             max_y_len = max(num_len_y0, num_len_y1)
@@ -294,10 +295,10 @@ class Funfig(Figure):
             total_y_indent = inside_indent + spec_opacity + outside_y_indent
             # Expanding field
             tmp = np.zeros(shape=(total_x_indent + outside_x_indent + self.img_fld.field.shape[0],
-                                  total_y_indent + outside_y_indent + self.img_fld.field.shape[1] + (max_x_len * 2)),
+                                  total_y_indent + outside_y_indent + self.img_fld.field.shape[1] + max_x_len * 2),
                            dtype='uint16')
-            tmp[total_x_indent:-outside_x_indent,
-                total_y_indent + max_x_len:-outside_y_indent-max_x_len] = self.img_fld.field
+            tmp[total_x_indent:- outside_x_indent,
+                total_y_indent + max_x_len:-outside_y_indent - max_x_len] = self.img_fld.field
             self.img_fld.field = tmp
             # Draw specification axis lines
             self.img_fld.field[outside_x_indent:, outside_y_indent] = 255
@@ -305,22 +306,22 @@ class Funfig(Figure):
             # Adding notches on axis lines by X axis
             dx = self.x1 - self.x0
             self.img_fld.field[outside_x_indent - notch_len:outside_x_indent,
-                               total_y_indent + self.thick + max_x_len] = 255
+                               total_y_indent + max_x_len + self.thick] = 255
             self.img_fld.field[outside_x_indent - notch_len:outside_x_indent,
-                               total_y_indent - self.thick + max_x_len + dx] = 255
+                               total_y_indent + max_x_len + self.thick + dx] = 255
             #Drawn numbers that too close to each other
             if dx < max_x_len and dx != 0:
-                num_art = Number(number=str(round(self.x0/scaling)), x0=total_y_indent)
+                num_art = Number(number=str(round(self.x0/scaling)), x0=total_y_indent + self.thick)
                 self.img_fld += num_art.get_numbers()
-                num_art = Number(number=str(round(self.x1/scaling)), x0=total_y_indent + max_x_len + dx)
+                num_art = Number(number=str(round(self.x1/scaling)), x0=total_y_indent + self.thick + max_x_len + dx)
                 self.img_fld += num_art.get_numbers()
             #Drawn numbers with normal split
             else:
                 num_art = Number(number=str(round(self.x0/scaling)),
-                                 x0=total_y_indent - int(num_len_x0 * num_len / 2) + self.thick + max_x_len)
+                                 x0=total_y_indent - int(num_len_x0 * num_len / 2) + max_x_len + self.thick)
                 self.img_fld += num_art.get_numbers()
                 num_art = Number(number=str(round(self.x1/scaling)),
-                                 x0=total_y_indent - int(num_len_x1 * num_len / 2) + self.thick + max_x_len + dx)
+                                 x0=total_y_indent - int(num_len_x1 * num_len / 2) + max_x_len + self.thick + dx)
                 self.img_fld += num_art.get_numbers()
                 step = 20 * max(1, round(max_x_len / num_len) - 3)
                 start_num = self.x0 + (abs(self.x0) % step) + step
@@ -328,9 +329,9 @@ class Funfig(Figure):
 
                 for num in range(start_num, stop_num, step):
                     self.img_fld.field[outside_x_indent - notch_len:outside_x_indent,
-                                       total_y_indent + num + max_x_len - self.x0] = 255
+                                       total_y_indent + num + max_x_len - self.x0 + self.thick] = 255
                     num_art = Number(number=str(round(num/scaling)),
-                                     x0=total_y_indent - int((len(str(num)) * num_len) / 2) + num - self.x0 + max_x_len)
+                                     x0=total_y_indent-int((len(str(num))*num_len)/2)+num-self.x0+max_x_len+self.thick)
                     self.img_fld += num_art.get_numbers()
             # Adding notches on axis lines by Y axis
             dy = self.y1 - self.y0
@@ -340,32 +341,32 @@ class Funfig(Figure):
             if dy < num_hei and dy != 0:
                 num_art = Number(number=str(round(self.y0/scaling)),
                                  x0=outside_y_indent - notch_len - num_len_y0 * num_len,
-                                 y0=total_x_indent - num_hei)
+                                 y0=total_x_indent - num_hei + self.thick)
                 self.img_fld += num_art.get_numbers()
                 num_art = Number(number=str(round(self.y1/scaling)),
                                  x0=outside_y_indent - notch_len - num_len_y1 * num_len,
-                                 y0=total_x_indent + dy)
+                                 y0=total_x_indent + dy + self.thick)
                 self.img_fld += num_art.get_numbers()
             # Drawn numbers with normal split
             else:
                 num_art = Number(number=str(round(self.y0/scaling)),
                                  x0=outside_y_indent - notch_len - num_len_y0 * num_len,
-                                 y0=total_x_indent - round(num_hei/2))
+                                 y0=total_x_indent - round(num_hei/2) + self.thick)
                 self.img_fld += num_art.get_numbers()
                 num_art = Number(number=str(round(self.y1/scaling)),
                                  x0=outside_y_indent - notch_len - num_len_y1 * num_len,
-                                 y0=total_x_indent - round(num_hei/2) + dy)
+                                 y0=total_x_indent - round(num_hei/2) + dy + self.thick)
                 self.img_fld += num_art.get_numbers()
                 step = 20 * max(1, max_y_len - 3)
                 start_num = self.y0 + (abs(self.y0) % step) + step
                 stop_num = self.y1 - (abs(self.y1) % step) + 1
 
                 for num in range(start_num, stop_num, step):
-                    self.img_fld.field[total_x_indent + num - self.y0,
+                    self.img_fld.field[total_x_indent + num - self.y0 + self.thick,
                                        outside_y_indent - notch_len:outside_y_indent] = 255
                     num_art = Number(number=str(round(num/scaling)),
                                      x0=outside_y_indent - notch_len - len(str(round(num/scaling))) * num_len,
-                                     y0=total_x_indent + num - self.y0 - round(num_hei/2))
+                                     y0=total_x_indent + num - self.y0 - round(num_hei/2) + self.thick)
                     self.img_fld += num_art.get_numbers()
 
 
