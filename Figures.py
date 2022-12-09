@@ -1,6 +1,6 @@
-from math import sin, cos, pi, radians, sqrt
+from math import sin, cos, pi, radians, sqrt, log2
 from Fields import *
-
+from Points import double_closed_pts
 
 class Figure:
     """
@@ -18,7 +18,12 @@ class Figure:
     closed: bool        Is figure closed on not
     """
 
-    def __init__(self, points_list: list = (), opacity: int = 100, thick: int = 0, name: str = 'lastfig', closed=True):
+    def __init__(self,
+                 points_list: list = (),
+                 opacity: int = 100,
+                 thick: int = 0,
+                 name: str = 'lastfig',
+                 closed=True):
         self.name = name
         self.points = points_list
         self.closed = closed
@@ -42,7 +47,7 @@ class Figure:
                                     x0=self.min_x - self.thick, y0=self.min_y - self.thick)
             self.draw_lines()
 
-            if self.max_y > 0 and self.max_x > 0:
+            if self.max_y < 0 and self.max_x < 0:
                 print(f'Figure {self.name} is out of field bounds')
 
     def save_figure(self):
@@ -56,11 +61,9 @@ class Figure:
         self.img_msk[y0, x0] = True
         if self.thick > 0:
             for x in range(self.thick + 1):
-                for y in range(round(sqrt(self.thick ** 2 - x ** 2)) + 1):
-                    self.img_msk[y0 + y, x0 + x] = True
-                    self.img_msk[y0 - y, x0 + x] = True
-                    self.img_msk[y0 + y, x0 - x] = True
-                    self.img_msk[y0 - y, x0 - x] = True
+                y = (round(sqrt(self.thick ** 2 - x ** 2)))
+                self.img_msk[y0 - y: y0 + y + 1, x0 + x] = True
+                self.img_msk[y0 - y: y0 + y + 1, x0 - x] = True
 
     def draw_crest(self, point):
         y0, x0 = point[0] + self.thick, point[1] + self.thick
@@ -215,9 +218,10 @@ class Funfig(Figure):
                  scaling: float = 1,
                  spec: bool = False,
                  name: str = 'func',
-                 thick:int = 0,
+                 thick: int = 0,
                  x0: int = 0,
-                 y0: int = 0):
+                 y0: int = 0,
+                 opacity: int = 100):
 
         if (len(x_range) != 2) or (type(x_range[0]) != int) or (type(x_range[1]) != int):
             print('Invalid format of x_range value')
@@ -232,7 +236,7 @@ class Funfig(Figure):
             y = f(x)
             points_list.append((round(y*scaling), round(x*scaling)))
 
-        super().__init__(points_list=points_list, closed=False, thick=thick, name=name)
+        super().__init__(points_list=points_list, closed=False, thick=thick, opacity=opacity, name=name)
         self.img_fld.y0, self.img_fld.x0 = y0, x0
         # Cutting figure by y_range and x_range
         if len(y_range) == 1:
@@ -280,7 +284,6 @@ class Funfig(Figure):
             self.y1 += self.min_y
             self.x0 += self.min_x
             self.x1 += self.min_x
-            print(self.y0, self.y1, self.x0, self.x1)
             num_len_y0 = len(str(round(self.y0 / scaling)))
             num_len_y1 = len(str(round(self.y1 / scaling)))
             max_y_len = max(num_len_y0, num_len_y1)
@@ -309,13 +312,13 @@ class Funfig(Figure):
                                total_y_indent + max_x_len + self.thick] = 255
             self.img_fld.field[outside_x_indent - notch_len:outside_x_indent,
                                total_y_indent + max_x_len + self.thick + dx] = 255
-            #Drawn numbers that too close to each other
+            # Drawn numbers that too close to each other
             if dx < max_x_len and dx != 0:
                 num_art = Number(number=str(round(self.x0/scaling)), x0=total_y_indent + self.thick)
                 self.img_fld += num_art.get_numbers()
                 num_art = Number(number=str(round(self.x1/scaling)), x0=total_y_indent + self.thick + max_x_len + dx)
                 self.img_fld += num_art.get_numbers()
-            #Drawn numbers with normal split
+            # Drawn numbers with normal split
             else:
                 num_art = Number(number=str(round(self.x0/scaling)),
                                  x0=total_y_indent - int(num_len_x0 * num_len / 2) + max_x_len + self.thick)
@@ -377,7 +380,14 @@ class TriangulatedField(Figure):
     x: int              X axis field size
     y: int              Y axis field size
     """
-    def __init__(self, x: int = 1, y: int = 1, side_len: int = 1, x0: int = 0, y0: int = 0, name='triangulated'):
+    def __init__(self,
+                 x: int = 1,
+                 y: int = 1,
+                 side_len: int = 1,
+                 x0: int = 0,
+                 y0: int = 0,
+                 name='triangulated',
+                 opacity: int = 100):
         if x < 1 or y < 1 or side_len < 1 or x < side_len or y < side_len:
             print('Wrong axis size format')
             return
@@ -400,22 +410,22 @@ class TriangulatedField(Figure):
         self.top_side_pts = [(round(y - y % triangle_hei), (half_side * ((self.trn + 1) % 2) + side_len * n))
                              for n in range(x // side_len + self.trn % 2)]
 
-        super().__init__()
+        super().__init__(name=name, opacity=opacity)
         self.img_fld = ArtField(x=round(x - x % side_len) + 1, y=round(y - y % triangle_hei) + 1, x0=x0, y0=y0)
         self.draw_lines()
 
 
     def draw_lines(self):
         self.img_msk = np.full(shape=self.img_fld.field.shape, fill_value=False, dtype='bool')
-        #Draw horizontal lines
+        # Draw horizontal lines
         for i in range(len(self.left_side_pts)):
             self.draw_line(self.left_side_pts[i], self.right_side_pts[i])
-        #Draw y = kx lines
+        # Draw y = kx lines
         first_diag_pts_top = self.left_side_pts[1:-1:2] + self.top_side_pts
         first_diag_pts_bot = self.bottom_side_pts + self.right_side_pts[1:-1:2]
         for i in range(len(first_diag_pts_bot)):
             self.draw_line(first_diag_pts_top[i], first_diag_pts_bot[i])
-        #Draw y = -kx lines
+        # Draw y = -kx lines
         second_diag_pts_top = self.top_side_pts[self.trn % 2:] + self.right_side_pts[-2 - self.trn % 2:0:-2]
         second_diag_pts_bot = self.left_side_pts[-2 - self.trn % 2:0:-2] + self.bottom_side_pts
         for i in range(len(second_diag_pts_bot)):
@@ -424,3 +434,83 @@ class TriangulatedField(Figure):
         self.img_fld.field[self.img_msk == True] = self.density
 
 
+class AniFig(Figure):
+    """
+    name: str           Figure name, used to filename in saving
+    points: list        List of figure points (y, x)
+    fig_img: np.array   Figure field container
+    img_fld: ArtField   Figure field class
+    opacity: int        Opacity of figure visualization
+    density: float      Density of figure visualization
+    thick: int          Thick of figure lines
+    closed: bool        Is figure closed on not
+    """
+    def __init__(self,
+                 points_list: list = (),
+                 opacity: int = 100,
+                 thick: int = 0,
+                 name: str = 'anifig',
+                 closed: bool = True,
+                 loop_steps: int = 1,
+                 frames: int = 30):
+
+        if len(points_list) == 0:
+            print(f'Points list is empty in {self.name}')
+            self.img_fld = AnimatedField()
+            return
+
+        self.name = name
+        self.thick = max(0, thick)
+        self.max_x = max([x for _, x in points_list])
+        self.max_y = max([y for y, _ in points_list])
+        self.min_x = min([x for _, x in points_list])
+        self.min_y = min([y for y, _ in points_list])
+        self.dy = self.max_y - self.min_y
+        self.dx = self.max_x - self.min_x
+        self.ani_fld = AnimatedField(x=self.dx + 2 * self.thick + 1,
+                                     y=self.dy + 2 * self.thick + 1,
+                                     x0=self.min_x - self.thick,
+                                     y0=self.min_y - self.thick,
+                                     frames=frames)
+
+        num_of_pts = len(points_list)
+        if num_of_pts < frames:
+            points_list = double_closed_pts(points_list, steps=(5 - int(log2(num_of_pts))), closed=closed)
+            num_of_pts = len(points_list)
+
+        step = num_of_pts * loop_steps / frames
+
+        if step >= frames:
+            super().__init__(points_list=self.points, opacity=opacity, thick=thick, closed=closed)
+            for fr in range(frames):
+                self.ani_fld.place_art(self.img_fld, fr)
+
+        else:
+            for fr in range(frames):
+                if (step * (fr + 1)) % num_of_pts > (step * fr) % num_of_pts:
+                    pts = points_list[round((step * fr) % num_of_pts): round((step * (fr + 1)) % num_of_pts) + 1]
+                    super().__init__(points_list=pts, opacity=opacity, thick=thick, name=name, closed=False)
+                    self.ani_fld.place_art(self.img_fld, fr)
+
+
+                else:
+                    if closed:
+                        pts_head = points_list[round((step * fr) % num_of_pts):]
+                        pts_tail = points_list[:round((step * (fr + 1)) % num_of_pts) + 1]
+                        pts = pts_head + pts_tail
+                        super().__init__(points_list=pts, opacity=opacity, thick=thick, name=name, closed=False)
+                        self.ani_fld.place_art(self.img_fld, fr)
+
+                    else:
+                        pts_head = points_list[round((step * fr) % num_of_pts):]
+                        super().__init__(points_list=pts_head, opacity=opacity, thick=thick, name=name, closed=False)
+                        self.ani_fld.place_art(self.img_fld, fr)
+                        pts_tail = points_list[:round((step * (fr + 1)) % num_of_pts) + 1]
+                        super().__init__(points_list=pts_tail, opacity=opacity, thick=thick, name=name, closed=False)
+                        self.ani_fld.place_art(self.img_fld, fr)
+
+    def get_figure(self):
+        return self.ani_fld
+
+    def save_figure(self):
+        self.ani_fld.save_field(f'{self.name}.gif')

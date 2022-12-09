@@ -43,20 +43,56 @@ class ArtField:
         return self
 
 
-class AnimatedField(ArtField):
+class AnimatedField():
     """
     x_size: int         Size of X field axis
     y_size: int         Size of Y field axis
-    frames: int         Number of animation frames
-    x0: int             Origin of X field axis for placed art
-    y0: int             Origin of Y field axis for placed art
+    x0: int             Origin of X field axis
+    y0: int             Origin of Y field axis
+    frames: int         Number of frames in out gif file
     field: np.array     Field container
     """
-    def __init__(self, y, x, y0, x0):
-        super().__init__(y=y, x=x, y0=y0, x0=x0)
 
+    def __init__(self,
+                 y: int = 1,
+                 x: int = 1,
+                 y0: int = 0,
+                 x0: int = 0,
+                 frames: int = 30):
+        if y < 0 or x < 0:
+            print('Field must have positive axis size value')
+            raise Exception
 
+        if y * x > 80000000:
+            print('Too big field to construct')
+            raise Exception
 
+        self.x0 = x0
+        self.y0 = y0
+        self.x_size = x
+        self.y_size = y
+        self.frames = frames
+        self.field = np.zeros(shape=(self.frames, self.y_size, self.x_size), dtype='uint16')
+
+    def save_field(self, filename='draw.gif'):
+        self.field[self.field > 255] = 255
+        self.field = np.array(self.field, dtype='uint8')
+        last_frame = max(np.where(self.field != 0)[0])
+        imgs = [Image.fromarray(255 - self.field[i, ::-1, :], mode='L') for i in range(last_frame + 1)]
+        imgs[0].save(filename, save_all=True, append_images=imgs[1:], loop=0)
+        self.field = np.array(self.field, dtype='uint16')
+
+    def place_art(self, fld: ArtField, frame):
+        self.field[frame, max(fld.y0 - self.y0, 0):max(fld.field.shape[0] + fld.y0 - self.y0, 0),
+                   max(fld.x0 - self.x0, 0):max(fld.field.shape[1] + fld.x0 - self.x0, 0)] += \
+            fld.field
+
+    def __add__(self, other):
+        self.field[:, max(other.y0, 0):max(other.field.shape[1]+other.y0, 0),
+                   max(other.x0, 0):max(other.field.shape[2]+other.x0, 0)] += \
+            other.field[:, max(-other.y0, 0):max(other.field.shape[1]-other.y0, other.field.shape[1]),
+                        max(-other.x0, 0):max(other.field.shape[2]-other.x0, other.field.shape[2])]
+        return self
 
 
 class Number:
