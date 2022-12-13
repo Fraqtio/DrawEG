@@ -1,6 +1,7 @@
-from math import sin, cos, pi, radians, sqrt, log2
+from math import sin, cos, pi, radians, log2
 from Fields import *
-from Points import double_closed_pts
+from Points import *
+
 
 class Figure:
     """
@@ -30,6 +31,7 @@ class Figure:
         self.thick = max(0, thick)
         self.opacity = max(0, opacity) if opacity < 100 else 100
         self.density = round(255 * self.opacity / 100)
+        self.img_msk = None
 
         if len(self.points) == 0:
             print(f'Points list is empty in {self.name}')
@@ -414,7 +416,6 @@ class TriangulatedField(Figure):
         self.img_fld = ArtField(x=round(x - x % side_len) + 1, y=round(y - y % triangle_hei) + 1, x0=x0, y0=y0)
         self.draw_lines()
 
-
     def draw_lines(self):
         self.img_msk = np.full(shape=self.img_fld.field.shape, fill_value=False, dtype='bool')
         # Draw horizontal lines
@@ -444,6 +445,7 @@ class AniFig(Figure):
     density: float      Density of figure visualization
     thick: int          Thick of figure lines
     closed: bool        Is figure closed on not
+    tailL bool          Is figure have half-visible tail
     """
     def __init__(self,
                  points_list: list = (),
@@ -452,13 +454,16 @@ class AniFig(Figure):
                  name: str = 'anifig',
                  closed: bool = True,
                  loop_steps: int = 1,
-                 frames: int = 30):
+                 frames: int = 30,
+                 tail: bool = False):
 
         if len(points_list) == 0:
             print(f'Points list is empty in {self.name}')
             self.img_fld = AnimatedField()
             return
 
+        self.closed_anim = closed
+        self.frames = frames
         self.name = name
         self.thick = max(0, thick)
         self.max_x = max([x for _, x in points_list])
@@ -471,46 +476,71 @@ class AniFig(Figure):
                                      y=self.dy + 2 * self.thick + 1,
                                      x0=self.min_x - self.thick,
                                      y0=self.min_y - self.thick,
-                                     frames=frames)
+                                     frames=self.frames)
 
-        num_of_pts = len(points_list)
-        if num_of_pts < frames:
-            points_list = double_closed_pts(points_list, steps=(5 - int(log2(num_of_pts))), closed=closed)
-            num_of_pts = len(points_list)
+        # Standardise points list
+        self.pts = points_list
+        num_of_pts = len(self.pts)
 
-        step = num_of_pts * loop_steps / frames
+        if num_of_pts < frames * 2:
+            self.pts = double_pts(self.pts,
+                                  steps=int(log2(frames * 2) - int(log2(num_of_pts))),
+                                  closed=self.closed_anim)
+        self.pts = drop_n_lst(list=self.pts, n=len(self.pts) - frames * 2)
+        self.num_of_pts = len(self.pts)
+        self.step = 2 * loop_steps
 
-        if step >= frames:
-            super().__init__(points_list=self.points, opacity=opacity, thick=thick, closed=closed)
+        if self.step >= frames:
+            super().__init__(points_list=self.points, opacity=opacity, thick=thick, closed=self.closed_anim)
             for fr in range(frames):
                 self.ani_fld.place_art(self.img_fld, fr)
 
         else:
             for fr in range(frames):
-                if (step * (fr + 1)) % num_of_pts > (step * fr) % num_of_pts:
-                    pts = points_list[round((step * fr) % num_of_pts): round((step * (fr + 1)) % num_of_pts) + 1]
-                    super().__init__(points_list=pts, opacity=opacity, thick=thick, name=name, closed=False)
-                    self.ani_fld.place_art(self.img_fld, fr)
+                to_frame = fr
+                self.place_ani(opac=opacity, ind=fr, to_frame=to_frame)
 
-
-                else:
-                    if closed:
-                        pts_head = points_list[round((step * fr) % num_of_pts):]
-                        pts_tail = points_list[:round((step * (fr + 1)) % num_of_pts) + 1]
-                        pts = pts_head + pts_tail
-                        super().__init__(points_list=pts, opacity=opacity, thick=thick, name=name, closed=False)
-                        self.ani_fld.place_art(self.img_fld, fr)
+                if tail:
+                    if fr == 0:
+                        fr = frames - 1
 
                     else:
-                        pts_head = points_list[round((step * fr) % num_of_pts):]
-                        super().__init__(points_list=pts_head, opacity=opacity, thick=thick, name=name, closed=False)
-                        self.ani_fld.place_art(self.img_fld, fr)
-                        pts_tail = points_list[:round((step * (fr + 1)) % num_of_pts) + 1]
-                        super().__init__(points_list=pts_tail, opacity=opacity, thick=thick, name=name, closed=False)
-                        self.ani_fld.place_art(self.img_fld, fr)
+                        fr -= 1
+                    self.place_ani(opac=int(opacity/2), ind=fr, to_frame=to_frame)
+
+    def place_ani(self, opac: int, ind: int, to_frame: int):
+        # These is check is segment fractured
+        def segm_check(step: int, fr: int, num_of_pts: int) -> bool:
+            return (step * (fr + 1)) % num_of_pts > (step * fr) % num_of_pts
+
+        if segm_check(step=self.step, fr=ind, num_of_pts=self.num_of_pts):
+            pts = self.pts[(self.step * ind) % self.num_of_pts: ((self.step * (ind + 1)) % self.num_of_pts) + 1]
+            super().__init__(points_list=pts, opacity=opac, thick=self.thick, closed=False)
+            self.ani_fld.place_art(self.img_fld, to_frame)
+
+        else:
+            if self.closed_anim:
+                pts_head = self.pts[round((self.step * ind) % self.num_of_pts):]
+                pts_tail = self.pts[:round((self.step * (ind + 1)) % self.num_of_pts) + 1]
+                pts = pts_head + pts_tail
+                super().__init__(points_list=pts, opacity=opac, thick=self.thick, closed=False)
+                self.ani_fld.place_art(self.img_fld, to_frame)
+
+            else:
+                pts_head = self.pts[round((self.step * ind) % self.num_of_pts):]
+                super().__init__(points_list=pts_head, opacity=opac, thick=self.thick, closed=False)
+                self.ani_fld.place_art(self.img_fld, ind)
+                pts_tail = self.pts[:round((self.step * (ind + 1)) % self.num_of_pts) + 1]
+                super().__init__(points_list=pts_tail, opacity=opac, thick=self.thick, closed=False)
+                self.ani_fld.place_art(self.img_fld, to_frame)
+
 
     def get_figure(self):
         return self.ani_fld
 
     def save_figure(self):
         self.ani_fld.save_field(f'{self.name}.gif')
+
+    # def __add__(self, other):
+    #
+    #     return result_fig

@@ -1,3 +1,4 @@
+import os
 import numpy as np
 from PIL import Image
 
@@ -30,20 +31,24 @@ class ArtField:
         self.field = np.zeros(shape=(self.y_size, self.x_size), dtype='uint16')
 
     def save_field(self, filename='draw.png'):
-        self.field[self.field > 255] = 255
         self.field = np.array(self.field, dtype='uint8')
-        Image.fromarray(255 - self.field[::-1], mode='L').save(filename)
+        Image.fromarray(255 - self.field[::-1], mode='L').save(os.environ['IMG_FOLDER']+filename)
         self.field = np.array(self.field, dtype='uint16')
 
     def __add__(self, other):
-        self.field[max(other.y0, 0):max(other.field.shape[0]+other.y0, 0),
-                   max(other.x0, 0):max(other.field.shape[1]+other.x0, 0)] += \
-            other.field[max(-other.y0, 0):max(other.field.shape[0]-other.y0, other.field.shape[0]),
-                        max(-other.x0, 0):max(other.field.shape[1]-other.x0, other.field.shape[1])]
+        chg_fld = self.field[max(other.y0, 0):max(other.field.shape[0] + other.y0, 0),
+                             max(other.x0, 0):max(other.field.shape[1] + other.x0, 0)]
+        oth_fld = other.field[max(-other.y0, 0):max(other.field.shape[0] - other.y0, other.field.shape[0]),
+                              max(-other.x0, 0):max(other.field.shape[1] - other.x0, other.field.shape[1])]
+        max_o = max(chg_fld.max(), oth_fld.max())
+        chg_fld += oth_fld
+        chg_fld[chg_fld > max_o] = max_o
+        self.field[max(other.y0, 0):max(other.field.shape[0] + other.y0, 0),
+                   max(other.x0, 0):max(other.field.shape[1] + other.x0, 0)] = chg_fld
         return self
 
 
-class AnimatedField():
+class AnimatedField:
     """
     x_size: int         Size of X field axis
     y_size: int         Size of Y field axis
@@ -75,23 +80,38 @@ class AnimatedField():
         self.field = np.zeros(shape=(self.frames, self.y_size, self.x_size), dtype='uint16')
 
     def save_field(self, filename='draw.gif'):
-        self.field[self.field > 255] = 255
         self.field = np.array(self.field, dtype='uint8')
         last_frame = max(np.where(self.field != 0)[0])
         imgs = [Image.fromarray(255 - self.field[i, ::-1, :], mode='L') for i in range(last_frame + 1)]
-        imgs[0].save(filename, save_all=True, append_images=imgs[1:], loop=0)
+        imgs[0].save(os.environ['IMG_FOLDER']+filename,
+                     save_all=True,
+                     append_images=imgs[1:],
+                     loop=0,
+                     duration=1000/self.frames)
         self.field = np.array(self.field, dtype='uint16')
 
     def place_art(self, fld: ArtField, frame):
-        self.field[frame, max(fld.y0 - self.y0, 0):max(fld.field.shape[0] + fld.y0 - self.y0, 0),
-                   max(fld.x0 - self.x0, 0):max(fld.field.shape[1] + fld.x0 - self.x0, 0)] += \
-            fld.field
+
+        tmp_art = ArtField(y=self.y_size, x=self.x_size)
+        tmp_art.field = self.field[frame]
+        fld.y0 -= self.y0
+        fld.x0 -= self.x0
+        tmp_art += fld
+        self.field[frame] = tmp_art.field
 
     def __add__(self, other):
-        self.field[:, max(other.y0, 0):max(other.field.shape[1]+other.y0, 0),
-                   max(other.x0, 0):max(other.field.shape[2]+other.x0, 0)] += \
-            other.field[:, max(-other.y0, 0):max(other.field.shape[1]-other.y0, other.field.shape[1]),
-                        max(-other.x0, 0):max(other.field.shape[2]-other.x0, other.field.shape[2])]
+        chg_fld = self.field[:other.field.shape[0],
+                             max(other.y0, 0):max(other.field.shape[1]+other.y0, 0),
+                             max(other.x0, 0):max(other.field.shape[2]+other.x0, 0)]
+        oth_fld = other.field[:min(self.field.shape[0], other.field.shape[0]),
+                              max(-other.y0, 0):max(other.field.shape[1]-other.y0, other.field.shape[1]),
+                              max(-other.x0, 0):max(other.field.shape[2]-other.x0, other.field.shape[2])]
+        max_o = max(chg_fld.max(), oth_fld.max())
+        chg_fld += oth_fld
+        chg_fld[chg_fld > max_o] = max_o
+        self.field[:other.field.shape[0],
+                    max(other.y0, 0):max(other.field.shape[1] + other.y0, 0),
+                    max(other.x0, 0):max(other.field.shape[2] + other.x0, 0)] = chg_fld
         return self
 
 

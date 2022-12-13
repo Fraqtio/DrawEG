@@ -21,7 +21,12 @@ def mid_pts(pts1, pts2):
     mid = (round((y0 + y1) / 2), round((x0 + x1) / 2))
     return mid
 
-def double_closed_pts(list: list = (), steps: int = 1, closed: bool = True):
+
+def double_pts(list: list = (), steps: int = 1, closed: bool = True):
+    if steps < 1:
+        print('Invalid steps value')
+        return list
+
     result = list
     for _ in range(max(steps, 0)):
         tmp_list = []
@@ -36,3 +41,17 @@ def double_closed_pts(list: list = (), steps: int = 1, closed: bool = True):
         result = tmp_list
     return result
 
+def drop_n_lst(list, n):
+    # A little troubles with big float nums but working well in 100000 range
+    len_lst = len(list)
+    trg_len = len_lst - n
+    result = []
+    i = 0
+    sep = trg_len / len_lst / 2
+    while trg_len > len(result):
+        sep += trg_len / len_lst
+        if sep > 1:
+            sep -= 1
+            result.append(list[i])
+        i += 1
+    return result
