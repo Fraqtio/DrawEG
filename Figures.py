@@ -45,8 +45,10 @@ class Figure:
             self.points = [(y - self.min_y, x - self.min_x) for y, x in self.points]
             self.dy = self.max_y - self.min_y
             self.dx = self.max_x - self.min_x
-            self.img_fld = ArtField(x=self.dx + 2 * self.thick + 1, y=self.dy + 2 * self.thick + 1,
-                                    x0=self.min_x - self.thick, y0=self.min_y - self.thick)
+            self.img_fld = ArtField(x=self.dx + 2 * self.thick + 1,
+                                    y=self.dy + 2 * self.thick + 1,
+                                    x0=self.min_x - self.thick,
+                                    y0=self.min_y - self.thick)
             self.draw_lines()
 
             if self.max_y < 0 and self.max_x < 0:
@@ -61,6 +63,7 @@ class Figure:
     def draw_dot(self, point):
         y0, x0 = point[0] + self.thick, point[1] + self.thick
         self.img_msk[y0, x0] = True
+
         if self.thick > 0:
             for x in range(self.thick + 1):
                 y = (round(sqrt(self.thick ** 2 - x ** 2)))
@@ -69,23 +72,30 @@ class Figure:
 
     def draw_crest(self, point):
         y0, x0 = point[0] + self.thick, point[1] + self.thick
+
         if self.thick > 0:
             self.img_msk[y0 - self.thick: y0 + self.thick + 1, x0] = True
             self.img_msk[y0, x0 - self.thick: x0 + self.thick + 1] = True
+
         else:
             self.img_msk[y0, x0] = True
 
     def draw_lines(self):
         self.img_msk = np.full(shape=self.img_fld.field.shape, fill_value=False, dtype='bool')
+
         if len(self.points) > 2:
+
             if self.closed:
                 for i in range(len(self.points)):
                     self.draw_line(self.points[i-1], self.points[i])
+
             else:
                 for i in range(len(self.points)-1):
                     self.draw_line(self.points[i], self.points[i+1])
+
         elif len(self.points) == 2:
             self.draw_line(self.points[0], self.points[1])
+
         else:
             self.draw_dot(self.points[0])
         self.img_fld.field[self.img_msk == True] = self.density
@@ -330,13 +340,13 @@ class Funfig(Figure):
                 self.img_fld += num_art.get_numbers()
                 step = 20 * max(1, round(max_x_len / num_len) - 3)
                 start_num = self.x0 + (abs(self.x0) % step) + step
-                stop_num = self.x1 - (abs(self.x1) % step) + 1
+                stop_num = self.x1 - (abs(self.x1) % step)
 
                 for num in range(start_num, stop_num, step):
                     self.img_fld.field[outside_x_indent - notch_len:outside_x_indent,
                                        total_y_indent + num + max_x_len - self.x0 + self.thick] = 255
                     num_art = Number(number=str(round(num/scaling)),
-                                     x0=total_y_indent-int((len(str(num))*num_len)/2)+num-self.x0+max_x_len+self.thick)
+                                     x0=total_y_indent-int((len(str(num))*num_len)/3)+num-self.x0+max_x_len+self.thick)
                     self.img_fld += num_art.get_numbers()
             # Adding notches on axis lines by Y axis
             dy = self.y1 - self.y0
@@ -364,7 +374,7 @@ class Funfig(Figure):
                 self.img_fld += num_art.get_numbers()
                 step = 20 * max(1, max_y_len - 3)
                 start_num = self.y0 + (abs(self.y0) % step) + step
-                stop_num = self.y1 - (abs(self.y1) % step) + 1
+                stop_num = self.y1 - (abs(self.y1) % step)
 
                 for num in range(start_num, stop_num, step):
                     self.img_fld.field[total_x_indent + num - self.y0 + self.thick,
@@ -373,66 +383,6 @@ class Funfig(Figure):
                                      x0=outside_y_indent - notch_len - len(str(round(num/scaling))) * num_len,
                                      y0=total_x_indent + num - self.y0 - round(num_hei/2) + self.thick)
                     self.img_fld += num_art.get_numbers()
-
-
-class TriangulatedField(Figure):
-    """
-    Field that separated by triangles
-    side_len: int       Length of triangle side
-    x: int              X axis field size
-    y: int              Y axis field size
-    """
-    def __init__(self,
-                 x: int = 1,
-                 y: int = 1,
-                 side_len: int = 1,
-                 x0: int = 0,
-                 y0: int = 0,
-                 name='triangulated',
-                 opacity: int = 100):
-        if x < 1 or y < 1 or side_len < 1 or x < side_len or y < side_len:
-            print('Wrong axis size format')
-            return
-        if abs(x0) > x or abs(y0) > y:
-            print('Figure has been placed out of field bounds')
-            return
-
-        triangle_hei = sqrt(3) / 2 * side_len
-        half_side = int(side_len / 2)
-        self.trn = int(y // triangle_hei)
-
-        self.left_side_pts = [(round(n * triangle_hei), round(half_side * ((n + 1) % 2)))
-                              for n in range(self.trn + 1)]
-
-        self.right_side_pts = [(round(n * triangle_hei), round(x - int(x % side_len) - half_side * ((n + 1) % 2)))
-                               for n in range(self.trn + 1)]
-
-        self.bottom_side_pts = [(0, round(half_side + side_len * n)) for n in range(x//side_len)]
-
-        self.top_side_pts = [(round(y - y % triangle_hei), (half_side * ((self.trn + 1) % 2) + side_len * n))
-                             for n in range(x // side_len + self.trn % 2)]
-
-        super().__init__(name=name, opacity=opacity)
-        self.img_fld = ArtField(x=round(x - x % side_len) + 1, y=round(y - y % triangle_hei) + 1, x0=x0, y0=y0)
-        self.draw_lines()
-
-    def draw_lines(self):
-        self.img_msk = np.full(shape=self.img_fld.field.shape, fill_value=False, dtype='bool')
-        # Draw horizontal lines
-        for i in range(len(self.left_side_pts)):
-            self.draw_line(self.left_side_pts[i], self.right_side_pts[i])
-        # Draw y = kx lines
-        first_diag_pts_top = self.left_side_pts[1:-1:2] + self.top_side_pts
-        first_diag_pts_bot = self.bottom_side_pts + self.right_side_pts[1:-1:2]
-        for i in range(len(first_diag_pts_bot)):
-            self.draw_line(first_diag_pts_top[i], first_diag_pts_bot[i])
-        # Draw y = -kx lines
-        second_diag_pts_top = self.top_side_pts[self.trn % 2:] + self.right_side_pts[-2 - self.trn % 2:0:-2]
-        second_diag_pts_bot = self.left_side_pts[-2 - self.trn % 2:0:-2] + self.bottom_side_pts
-        for i in range(len(second_diag_pts_bot)):
-            self.draw_line(second_diag_pts_bot[i], second_diag_pts_top[i])
-
-        self.img_fld.field[self.img_msk == True] = self.density
 
 
 class AniFig(Figure):
@@ -444,8 +394,14 @@ class AniFig(Figure):
     opacity: int        Opacity of figure visualization
     density: float      Density of figure visualization
     thick: int          Thick of figure lines
-    closed: bool        Is figure closed on not
-    tailL bool          Is figure have half-visible tail
+    closed_anim: bool   Is figure closed on not
+    frames: int         Number of animation frames
+    pts: list           List of whole figure points
+    num_of_pts: int     Number of points in whole figure
+    step: int           Number of points in figure fragment in one frame
+    tail: bool          Is figure have half-visible tail
+    shadow: bool        Is figure have visible shadow along whole length
+    pts_density         Coefficient of number of points to frames ratio
     """
     def __init__(self,
                  points_list: list = (),
@@ -454,14 +410,21 @@ class AniFig(Figure):
                  name: str = 'anifig',
                  closed: bool = True,
                  loop_steps: int = 1,
-                 frames: int = 30,
-                 tail: bool = False):
+                 frames: int = 60,
+                 tail: bool = False,
+                 shadow: bool = False,
+                 pts_density: int = 4):
 
         if len(points_list) == 0:
             print(f'Points list is empty in {self.name}')
             self.img_fld = AnimatedField()
             return
 
+        self.loop_steps = loop_steps
+        self.pts_dens = pts_density
+        self.ani_opacity = opacity
+        self.shadow = shadow
+        self.tail = tail
         self.closed_anim = closed
         self.frames = frames
         self.name = name
@@ -477,39 +440,45 @@ class AniFig(Figure):
                                      x0=self.min_x - self.thick,
                                      y0=self.min_y - self.thick,
                                      frames=self.frames)
-
+        self.img_fld = ArtField()
         # Standardise points list
         self.pts = points_list
         num_of_pts = len(self.pts)
 
-        if num_of_pts < frames * 2:
+        if num_of_pts < self.frames * self.pts_dens:
             self.pts = double_pts(self.pts,
-                                  steps=int(log2(frames * 2) - int(log2(num_of_pts))),
+                                  steps=1 + int(log2(self.frames * self.pts_dens) - int(log2(num_of_pts))),
                                   closed=self.closed_anim)
-        self.pts = drop_n_lst(list=self.pts, n=len(self.pts) - frames * 2)
+        self.pts = drop_n_lst(lst=self.pts, n=len(self.pts) - self.frames * self.pts_dens)
         self.num_of_pts = len(self.pts)
-        self.step = 2 * loop_steps
-
-        if self.step >= frames:
-            super().__init__(points_list=self.points, opacity=opacity, thick=thick, closed=self.closed_anim)
-            for fr in range(frames):
+        self.step = self.pts_dens * self.loop_steps
+        # Creating shadow of whole figure
+        if self.shadow:
+            super().__init__(points_list=self.pts, opacity=int(opacity/10), thick=thick, closed=self.closed_anim)
+            for fr in range(self.frames):
                 self.ani_fld.place_art(self.img_fld, fr)
-
+        # Simplified creating of figure animation in case of overlength step
+        if self.step >= self.frames:
+            super().__init__(points_list=self.pts, opacity=opacity, thick=thick, closed=self.closed_anim)
+            for fr in range(self.frames):
+                self.ani_fld.place_art(self.img_fld, fr)
+        # Fractured creating of figure with "Tail" option
         else:
-            for fr in range(frames):
+            for fr in range(self.frames):
                 to_frame = fr
                 self.place_ani(opac=opacity, ind=fr, to_frame=to_frame)
+                # Tail placed in step-1 position on field and with half-opacity
+                if self.tail:
 
-                if tail:
                     if fr == 0:
-                        fr = frames - 1
+                        fr = self.frames - 1
 
                     else:
                         fr -= 1
                     self.place_ani(opac=int(opacity/2), ind=fr, to_frame=to_frame)
 
     def place_ani(self, opac: int, ind: int, to_frame: int):
-        # These is check is segment fractured
+        # Check is segment fractured
         def segm_check(step: int, fr: int, num_of_pts: int) -> bool:
             return (step * (fr + 1)) % num_of_pts > (step * fr) % num_of_pts
 
@@ -534,13 +503,34 @@ class AniFig(Figure):
                 super().__init__(points_list=pts_tail, opacity=opac, thick=self.thick, closed=False)
                 self.ani_fld.place_art(self.img_fld, to_frame)
 
-
     def get_figure(self):
         return self.ani_fld
 
     def save_figure(self):
         self.ani_fld.save_field(f'{self.name}.gif')
 
-    # def __add__(self, other):
-    #
-    #     return result_fig
+    def __add__(self, other):
+        if self.frames != other.frames:
+            print('Different number of frames in figures, cant calculate')
+            return self
+
+        # Coefficient of animation speed ratio
+        def ind_coef(i):
+            return int((i * other.step / self.step) % len(other.pts))
+
+        if self.loop_steps == other.loop_steps:
+            result_list = [mid_pts(pts, other.pts[ind]) for ind, pts in enumerate(self.pts)]
+
+        else:
+            result_list = [mid_pts(pts, other.pts[ind_coef(ind)])
+                           for ind, pts in enumerate(self.pts * self.loop_steps)]
+
+        return AniFig(points_list=result_list,
+                      opacity=max(self.ani_opacity, other.ani_opacity),
+                      thick=max(self.thick, other.thick),
+                      loop_steps=self.loop_steps,
+                      closed=self.closed_anim or other.closed_anim,
+                      frames=self.frames,
+                      tail=self.tail or other.tail,
+                      shadow=self.shadow or other.shadow,
+                      pts_density=self.pts_dens)

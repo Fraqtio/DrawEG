@@ -63,7 +63,7 @@ class AnimatedField:
                  x: int = 1,
                  y0: int = 0,
                  x0: int = 0,
-                 frames: int = 30):
+                 frames: int = 60):
         if y < 0 or x < 0:
             print('Field must have positive axis size value')
             raise Exception
@@ -91,12 +91,15 @@ class AnimatedField:
         self.field = np.array(self.field, dtype='uint16')
 
     def place_art(self, fld: ArtField, frame):
-
         tmp_art = ArtField(y=self.y_size, x=self.x_size)
         tmp_art.field = self.field[frame]
+        old_y0 = fld.y0
+        old_x0 = fld.x0
         fld.y0 -= self.y0
         fld.x0 -= self.x0
         tmp_art += fld
+        fld.y0 = old_y0
+        fld.x0 = old_x0
         self.field[frame] = tmp_art.field
 
     def __add__(self, other):
@@ -110,8 +113,8 @@ class AnimatedField:
         chg_fld += oth_fld
         chg_fld[chg_fld > max_o] = max_o
         self.field[:other.field.shape[0],
-                    max(other.y0, 0):max(other.field.shape[1] + other.y0, 0),
-                    max(other.x0, 0):max(other.field.shape[2] + other.x0, 0)] = chg_fld
+                   max(other.y0, 0):max(other.field.shape[1] + other.y0, 0),
+                   max(other.x0, 0):max(other.field.shape[2] + other.x0, 0)] = chg_fld
         return self
 
 
@@ -125,76 +128,76 @@ class Number:
 
     def __init__(self, number, y0=0, x0=0):
 
-        self.fld = ArtField(x0=x0, y0=y0, y=5, x=len(number)*5-len(number)+1)
+        self.fld = ArtField(x0=x0, y0=y0, y=5, x=len(number)*4)
 
         for idx, num in enumerate(number):
-            num_fld = ArtField(y=5, x=3, x0=idx*4)
+            num_fld = ArtField(y=5, x=4, x0=idx*4)
             if num == '-':
-                num_fld.field = np.array(([0, 0, 0],
-                                          [0, 0, 0],
-                                          [255, 255, 255],
-                                          [0, 0, 0],
-                                          [0, 0, 0]), dtype='uint8')
+                num_fld.field = np.array(([0, 0, 0, 0],
+                                          [0, 0, 0, 0],
+                                          [255, 255, 255, 0],
+                                          [0, 0, 0, 0],
+                                          [0, 0, 0, 0]), dtype='uint8')
             elif num == '0':
-                num_fld.field = np.array(([255, 255, 255],
-                                          [255, 0, 255],
-                                          [255, 0, 255],
-                                          [255, 0, 255],
-                                          [255, 255, 255]), dtype='uint8')
+                num_fld.field = np.array(([255, 255, 255, 0],
+                                          [255, 0, 255, 0],
+                                          [255, 0, 255, 0],
+                                          [255, 0, 255, 0],
+                                          [255, 255, 255, 0]), dtype='uint8')
             elif num == '1':
-                num_fld.field[::-1] = np.array(([0, 0, 255],
-                                                [0, 255, 255],
-                                                [0, 0, 255],
-                                                [0, 0, 255],
-                                                [0, 0, 255]), dtype='uint8')
+                num_fld.field[::-1] = np.array(([0, 0, 255, 0],
+                                                [0, 255, 255, 0],
+                                                [0, 0, 255, 0],
+                                                [0, 0, 255, 0],
+                                                [0, 0, 255, 0]), dtype='uint8')
             elif num == '2':
-                num_fld.field[::-1] = np.array(([255, 255, 255],
-                                                [0, 0, 255],
-                                                [255, 255, 255],
-                                                [255, 0, 0],
-                                                [255, 255, 255]), dtype='uint8')
+                num_fld.field[::-1] = np.array(([255, 255, 255, 0],
+                                                [0, 0, 255, 0],
+                                                [255, 255, 255, 0],
+                                                [255, 0, 0, 0],
+                                                [255, 255, 255, 0]), dtype='uint8')
             elif num == '3':
-                num_fld.field = np.array(([255, 255, 255],
-                                          [0, 0, 255],
-                                          [255, 255, 255],
-                                          [0, 0, 255],
-                                          [255, 255, 255]), dtype='uint8')
+                num_fld.field = np.array(([255, 255, 255, 0],
+                                          [0, 0, 255, 0],
+                                          [255, 255, 255, 0],
+                                          [0, 0, 255, 0],
+                                          [255, 255, 255, 0]), dtype='uint8')
             elif num == '4':
-                num_fld.field[::-1] = np.array(([255, 0, 255],
-                                                [255, 0, 255],
-                                                [255, 255, 255],
-                                                [0, 0, 255],
-                                                [0, 0, 255]), dtype='uint8')
+                num_fld.field[::-1] = np.array(([255, 0, 255, 0],
+                                                [255, 0, 255, 0],
+                                                [255, 255, 255, 0],
+                                                [0, 0, 255, 0],
+                                                [0, 0, 255, 0]), dtype='uint8')
             elif num == '5':
-                num_fld.field[::-1] = np.array(([255, 255, 255],
-                                                [255, 0, 0],
-                                                [255, 255, 255],
-                                                [0, 0, 255],
-                                                [255, 255, 255]), dtype='uint8')
+                num_fld.field[::-1] = np.array(([255, 255, 255, 0],
+                                                [255, 0, 0, 0],
+                                                [255, 255, 255, 0],
+                                                [0, 0, 255, 0],
+                                                [255, 255, 255, 0]), dtype='uint8')
             elif num == '6':
-                num_fld.field[::-1] = np.array(([255, 0, 0],
-                                                [255, 0, 0],
-                                                [255, 255, 255],
-                                                [255, 0, 255],
-                                                [255, 255, 255]), dtype='uint8')
+                num_fld.field[::-1] = np.array(([255, 0, 0, 0],
+                                                [255, 0, 0, 0],
+                                                [255, 255, 255, 0],
+                                                [255, 0, 255, 0],
+                                                [255, 255, 255, 0]), dtype='uint8')
             elif num == '7':
-                num_fld.field[::-1] = np.array(([255, 255, 255],
-                                                [0, 0, 255],
-                                                [0, 0, 255],
-                                                [0, 0, 255],
-                                                [0, 0, 255]), dtype='uint8')
+                num_fld.field[::-1] = np.array(([255, 255, 255, 0],
+                                                [0, 0, 255, 0],
+                                                [0, 0, 255, 0],
+                                                [0, 0, 255, 0],
+                                                [0, 0, 255, 0]), dtype='uint8')
             elif num == '8':
-                num_fld.field = np.array(([255, 255, 255],
-                                          [255, 0, 255],
-                                          [255, 255, 255],
-                                          [255, 0, 255],
-                                          [255, 255, 255]), dtype='uint8')
+                num_fld.field = np.array(([255, 255, 255, 0],
+                                          [255, 0, 255, 0],
+                                          [255, 255, 255, 0],
+                                          [255, 0, 255, 0],
+                                          [255, 255, 255, 0]), dtype='uint8')
             elif num == '9':
-                num_fld.field[::-1] = np.array(([255, 255, 255],
-                                                [255, 0, 255],
-                                                [255, 255, 255],
-                                                [0, 0, 255],
-                                                [0, 0, 255]), dtype='uint8')
+                num_fld.field[::-1] = np.array(([255, 255, 255, 0],
+                                                [255, 0, 255, 0],
+                                                [255, 255, 255, 0],
+                                                [0, 0, 255, 0],
+                                                [0, 0, 255, 0]), dtype='uint8')
             else:
                 print('wrong number')
                 raise Exception

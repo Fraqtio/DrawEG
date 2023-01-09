@@ -10,9 +10,8 @@ def circle_pts(r=1, x0=0, y0=0):
     pts_list_4 = [(-y, x) for y, x in pts_list_1[::-1]]
     pts_list_3 = [(-y, -x) for y, x in pts_list_1]
     pts_list_2 = [(y, -x) for y, x in pts_list_1[::-1]]
-    circle_pts = pts_list_1 + pts_list_4 + pts_list_3 + pts_list_2
-
-    return [(y + y0, x + x0) for y, x in circle_pts]
+    crl_pts = pts_list_1 + pts_list_4 + pts_list_3 + pts_list_2
+    return [(y + y0, x + x0) for y, x in crl_pts]
 
 
 def mid_pts(pts1, pts2):
@@ -22,28 +21,41 @@ def mid_pts(pts1, pts2):
     return mid
 
 
-def double_pts(list: list = (), steps: int = 1, closed: bool = True):
+def double_pts(lst: list = (), steps: int = 1, closed: bool = True):
+
     if steps < 1:
         print('Invalid steps value')
-        return list
+        return lst
 
-    result = list
-    for _ in range(max(steps, 0)):
-        tmp_list = []
+    if len(lst) == 0:
+        print('Double_pts gave null list')
+        return lst
 
-        for i in range(len(result) - 1):
-            tmp_list.append(result[i])
-            tmp_list.append(mid_pts(result[i], result[i + 1]))
+    elif len(lst) == 1:
+        result = lst * (2 ** steps)
 
-        tmp_list.append(result[-1])
-        if closed:
-            tmp_list.append(mid_pts(result[-1], result[0]))
-        result = tmp_list
+    else:
+        result = lst
+        for _ in range(max(steps, 0)):
+            tmp_list = []
+
+            for i in range(len(result) - 1):
+                tmp_list.append(result[i])
+                tmp_list.append(mid_pts(result[i], result[i + 1]))
+
+            tmp_list.append(result[-1])
+            if closed:
+                tmp_list.append(mid_pts(result[-1], result[0]))
+            result = tmp_list
     return result
 
-def drop_n_lst(list, n):
+
+def drop_n_lst(lst: list, n: int = 0):
+    len_lst = len(lst)
+    if n < 0 or len_lst < n:
+        print('Wrong deleting number value')
+        return
     # A little troubles with big float nums but working well in 100000 range
-    len_lst = len(list)
     trg_len = len_lst - n
     result = []
     i = 0
@@ -52,6 +64,7 @@ def drop_n_lst(list, n):
         sep += trg_len / len_lst
         if sep > 1:
             sep -= 1
-            result.append(list[i])
+            result.append(lst[i])
         i += 1
+
     return result
