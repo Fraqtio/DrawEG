@@ -6,7 +6,7 @@ def circle_pts(r=1, x0=0, y0=0):
     for x in range(r + 1):
         y = (round(sqrt(r ** 2 - x ** 2)))
         pts_list_1.append((y, x))
-    pts_list_1 = pts_list_1[:round(r*sqrt(3)/2)] + [(x, y) for y, x in pts_list_1[round(r/2)::-1]]
+    pts_list_1 = pts_list_1[:round(r * sqrt(3) / 2)] + [(x, y) for y, x in pts_list_1[round(r / 2)::-1]]
     pts_list_4 = [(-y, x) for y, x in pts_list_1[::-1]]
     pts_list_3 = [(-y, -x) for y, x in pts_list_1]
     pts_list_2 = [(y, -x) for y, x in pts_list_1[::-1]]
@@ -22,7 +22,6 @@ def mid_pts(pts1, pts2):
 
 
 def double_pts(lst: list = (), steps: int = 1, closed: bool = True):
-
     if steps < 1:
         print('Invalid steps value')
         return lst
@@ -68,3 +67,21 @@ def drop_n_lst(lst: list, n: int = 0):
         i += 1
 
     return result
+
+
+def sqr_sort(pts: list):
+    def ln(point1, point2):
+        n = 0
+        for i in range(3):
+            if point1[i] == point2[i]:
+                n += 1
+        return n == 2
+
+    if ln(pts[0], pts[1]) is False:
+        pts[1], pts[2] = pts[2], pts[1]
+
+    if ln(pts[2], pts[1]) is False:
+        pts[3], pts[2] = pts[2], pts[3]
+
+
+

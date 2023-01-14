@@ -1,10 +1,10 @@
 import time
 from Figures import *
-from Points import *
 
 
 def main():
-    print('Hello, world!')
+
+    TheCube(ln=500, frames=5000)
 
 if __name__ == '__main__':
     start = time.time()

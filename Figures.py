@@ -1,6 +1,7 @@
 from math import sin, cos, pi, radians, log2
 from Fields import *
 from Points import *
+from scipy.spatial.transform import Rotation
 
 
 class Figure:
@@ -340,7 +341,7 @@ class Funfig(Figure):
                 self.img_fld += num_art.get_numbers()
                 step = 20 * max(1, round(max_x_len / num_len) - 3)
                 start_num = self.x0 + (abs(self.x0) % step) + step
-                stop_num = self.x1 - (abs(self.x1) % step)
+                stop_num = self.x1 - (abs(self.x1) % step) + 1
 
                 for num in range(start_num, stop_num, step):
                     self.img_fld.field[outside_x_indent - notch_len:outside_x_indent,
@@ -534,3 +535,93 @@ class AniFig(Figure):
                       tail=self.tail or other.tail,
                       shadow=self.shadow or other.shadow,
                       pts_density=self.pts_dens)
+
+
+class TheCube:
+    """
+    l: int              Length of cube side
+    field: ArtField     ArtField that contains cube image
+    points: list        List of cube points coordinates
+    vec: tuple         Rotating angles applied to cube (x, y, z)
+    frames: int         How many frames needs to calculate
+    """
+
+    def __init__(self, ln: int = 1, x0: int = 0, y0: int = 0, rot=(0.02, 0.01, 0.01), frames: int = 300):
+        self.ln = ln
+        self.rot = rot
+        self.fld = ArtField()
+        # Additional len with 45deg rotate
+        alen = int(self.ln / 2)
+        # Starting position of cube points
+        self.points = [(-alen, -alen, -alen),
+                       (alen, -alen, -alen),
+                       (alen, alen, -alen),
+                       (-alen, alen, -alen),
+                       (-alen, alen, alen),
+                       (alen, alen, alen),
+                       (-alen, -alen, alen),
+                       (alen, -alen, alen)]
+        self.sides = {}
+        self.max_z = 0
+        for i in range(3):
+            result1 = []
+            result2 = []
+            for point in self.points:
+                if point[2] > self.max_z:
+                    self.max_z = point[2]
+
+                if point[i] == alen:
+                    result1.append(point)
+
+                else:
+                    result2.append(point)
+
+            sqr_sort(result1)
+            sqr_sort(result2)
+            self.sides[6 if i*2 == 0 else i*2] = tuple(result1)
+            self.sides[i*2+1] = tuple(result2)
+
+        self.sides = {i: self.sides[i] for i in range(1, 7)}
+
+        self.ani_img = AnimatedField(x0=x0,
+                                     y0=y0,
+                                     x=round(self.ln * sqrt(3)),
+                                     y=round(self.ln * sqrt(3)),
+                                     frames=frames)
+        for fr in range(frames):
+            self.draw_cube(fr)
+            self.rotate_cube()
+
+        self.ani_img.save_field(filename='cube.gif')
+
+    def draw_cube(self, frame: int):
+        self.fld = ArtField(x=round(self.ln * sqrt(3)),
+                            y=round(self.ln * sqrt(3)))
+        for i in range(1, 7):
+            is_back = False
+            points = []
+            for j in range(4):
+                if self.sides[i][j][2] == self.max_z:
+                    is_back = True
+                y = round(self.sides[i][j][1] + self.ln * sqrt(3) / 2)
+                x = round(self.sides[i][j][0] + self.ln * sqrt(3) / 2)
+                point = (min(y, round(self.ln * sqrt(3))-1) if y > 0 else 0,
+                         min(x, round(self.ln * sqrt(3))-1) if x > 0 else 0)
+                points.append(point)
+            if is_back:
+                continue
+            side_fig = Figure(points_list=points)
+            self.fld += side_fig.get_figure()
+            self.ani_img.place_art(self.fld, frame)
+
+    def rotate_cube(self):
+        self.max_z = 0
+        for ind, side in enumerate(self.sides.values()):
+            points = []
+            for pts in side:
+                mrot = Rotation.from_euler('xyz', self.rot).as_matrix()
+                rot_p = np.squeeze(np.matmul(list(pts), mrot))
+                if rot_p[2] > self.max_z:
+                    self.max_z = rot_p[2]
+                points.append(tuple(rot_p))
+            self.sides[ind+1] = tuple(points)
