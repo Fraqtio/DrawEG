@@ -3,7 +3,7 @@ from math import sqrt
 
 def circle_pts(r=1, x0=0, y0=0):
     pts_list_1 = []
-    for x in range(r + 1):
+    for x in range(1, r + 1):
         y = (round(sqrt(r ** 2 - x ** 2)))
         pts_list_1.append((y, x))
     pts_list_1 = pts_list_1[:round(r * sqrt(3) / 2)] + [(x, y) for y, x in pts_list_1[round(r / 2)::-1]]

@@ -8,14 +8,14 @@ class Figure:
     """
     name: str           Figure name, used to filename in saving
     points: list        List of figure points (y, x)
-    fig_img: np.array   Figure field container
-    img_fld: ArtField   Figure field class
+    img_fld: ArtField   Figure field container
+    fig_img: np.array   ArtField field container
     opacity: int        Opacity of figure visualization
     min_x: int          Min X value of figure
     min_y: int          Min Y value of figure
     max_x: int          Max X value of figure
     max_y: int          Max Y value of figure
-    density: float      Density of figure visualization
+    density: int        Density of figure visualization
     thick: int          Thick of figure lines
     closed: bool        Is figure closed on not
     """
@@ -144,7 +144,7 @@ class Figure:
                     y0 += sdy
 
 
-class SimFigure(Figure):
+class SymFigure(Figure):
 
     """
     corners: int        Number of figure corners
@@ -212,7 +212,7 @@ class SimFigure(Figure):
         super().__init__(points_list=points_list, opacity=opacity, thick=thick, name=name)
 
 
-class Funfig(Figure):
+class FunFig(Figure):
     """
     Figure that created by math function f(x).
     f:              Function Y by X, y = x by default
@@ -389,11 +389,12 @@ class Funfig(Figure):
 class AniFig(Figure):
     """
     name: str           Figure name, used to filename in saving
-    points: list        List of figure points (y, x)
+    points: list        List of figure points (y, x) pack
     fig_img: np.array   Figure field container
-    img_fld: ArtField   Figure field class
+    img_fld: ArtField   Figure field container class object
+    ani_fld: AnimatedField  Figure animation container
     opacity: int        Opacity of figure visualization
-    density: float      Density of figure visualization
+    density: int        Density of figure visualization
     thick: int          Thick of figure lines
     closed_anim: bool   Is figure closed on not
     frames: int         Number of animation frames
@@ -402,7 +403,8 @@ class AniFig(Figure):
     step: int           Number of points in figure fragment in one frame
     tail: bool          Is figure have half-visible tail
     shadow: bool        Is figure have visible shadow along whole length
-    pts_density         Coefficient of number of points to frames ratio
+    pts_density: int    Coefficient of number of points to frames ratio
+    loop_steps: int     How many times animation move around figures_pts
     """
     def __init__(self,
                  points_list: list = (),
@@ -428,7 +430,6 @@ class AniFig(Figure):
         self.tail = tail
         self.closed_anim = closed
         self.frames = frames
-        self.name = name
         self.thick = max(0, thick)
         self.max_x = max([x for _, x in points_list])
         self.max_y = max([y for y, _ in points_list])
@@ -477,6 +478,8 @@ class AniFig(Figure):
                     else:
                         fr -= 1
                     self.place_ani(opac=int(opacity/2), ind=fr, to_frame=to_frame)
+        # Almost miss this
+        self.name = name
 
     def place_ani(self, opac: int, ind: int, to_frame: int):
         # Check is segment fractured

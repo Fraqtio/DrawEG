@@ -4,7 +4,7 @@ from Figures import *
 
 def main():
 
-    TheCube(ln=500, frames=5000)
+    TheCube(ln=200, frames=600)
 
 if __name__ == '__main__':
     start = time.time()
